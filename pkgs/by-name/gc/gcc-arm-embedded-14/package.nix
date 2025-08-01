@@ -1,14 +1,14 @@
 {
-  lib,
-  stdenv,
   fetchurl,
-  ncurses6,
+  lib,
   libxcrypt-legacy,
+  ncurses6,
+  stdenv,
   xz,
   zstd,
 }:
 
-stdenv.mkDerivation rec {
+let
   pname = "gcc-arm-embedded";
   version = "14.3.rel1";
 
@@ -29,9 +29,23 @@ stdenv.mkDerivation rec {
         aarch64-linux = "2d465847eb1d05f876270494f51034de9ace9abe87a4222d079f3360240184d3";
         x86_64-linux = "8f6903f8ceb084d9227b9ef991490413014d991874a1e34074443c2a72b14dbd";
       }
-      .${stdenv.hostPlatform.system} or (throw "Unsupported system: ${stdenv.hostPlatform.system}");
+      .${stdenv.hostPlatform.system};
   };
 
+  unpacked = import ./unpack.nix {
+    inherit
+      platform
+      pname
+      src
+      stdenv
+      version
+      ;
+  };
+in
+stdenv.mkDerivation {
+  inherit pname version platform;
+
+  dontUnpack = true;
   dontConfigure = true;
   dontBuild = true;
   dontPatchELF = true;
@@ -39,9 +53,7 @@ stdenv.mkDerivation rec {
 
   installPhase = ''
     mkdir -p $out
-    cp -r * $out
-    # these binaries require ancient Python 3.8 not available in Nixpkgs
-    rm $out/bin/{arm-none-eabi-gdb-py,arm-none-eabi-gdb-add-index-py} || :
+    cp -r ${unpacked}/* $out
   '';
 
   preFixup = lib.optionalString stdenv.hostPlatform.isLinux ''
